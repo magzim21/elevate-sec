@@ -31,11 +31,10 @@ type Response struct {
 }
 type Incident struct {
 	Priority    string  `json:"priority"`
-	Employee_id int64   `json:"employee_id"` // or reference to employee struct
-	Timestamp   float64 `json:"timestamp"`   // or float32 ?
+	Employee_id int64   `json:"employee_id"` 
+	Timestamp   float64 `json:"timestamp"`  
 }
 
-// response represents data about a record response. ? Struct tags
 type Priorities struct {
 	// todo / declare default values
 	Low      Severity `json:"low"`
