@@ -17,13 +17,16 @@ RUN GOOS=linux GOARCH=amd64 go build -o /app/elevate-sec main.go
 
 
 ## Deploy
+# https://github.com/GoogleContainerTools/distroless
 FROM gcr.io/distroless/base-debian10
+
+LABEL   authors="maksym onyshchenko" \
+    author-email="placeholder@maxim.run"
 
 WORKDIR /app
 COPY --from=build /app/elevate-sec /app/elevate-sec
 
 EXPOSE 9000
-
 USER nonroot:nonroot
 
 ENTRYPOINT ["/app/elevate-sec"]

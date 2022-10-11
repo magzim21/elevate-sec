@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
+	"sort"
 	"time"
 
 	// "errors"
@@ -31,8 +31,8 @@ type Response struct {
 }
 type Incident struct {
 	Priority    string  `json:"priority"`
-	Employee_id int64   `json:"employee_id"` 
-	Timestamp   float64 `json:"timestamp"`  
+	Employee_id int64   `json:"employee_id"`
+	Timestamp   float64 `json:"timestamp"`
 }
 
 type Priorities struct {
@@ -43,12 +43,27 @@ type Priorities struct {
 	Critical Severity `json:"critical"`
 }
 
+func (p *Priorities) sortSeverities() {
+	p.Low.sortIncidents()
+	p.Medium.sortIncidents()
+	p.High.sortIncidents()
+	p.Critical.sortIncidents()
+}
+
 type Severity struct {
 	Count     int32      `json:"count"`
 	Incidents []Incident `json:"incidents"`
 }
 
-type Merged map[string]*Priorities
+func (s *Severity) addIncident(incident Incident) {
+	s.Count++
+	s.Incidents = append(s.Incidents, incident)
+}
+func (s *Severity) sortIncidents() {
+	sort.SliceStable(s.Incidents, func(i, j int) bool {
+		return s.Incidents[i].Timestamp < s.Incidents[j].Timestamp
+	})
+}
 
 func main() {
 	initConfig()
@@ -57,7 +72,7 @@ func main() {
 	router := gin.Default()
 	router.GET("/incidents", getIncidents)
 	// router.SetTrustedProxies([]string{})
-	router.Run(fmt.Sprintf("localhost:%v", configuration.Port))
+	router.Run(fmt.Sprintf(":%v", configuration.Port))
 
 }
 
@@ -66,48 +81,46 @@ func getIncidents(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, mergeIncidents())
 }
 
-func mergeIncidents() map[string]Priorities {
+func mergeIncidents() map[int64]Priorities {
 	url1 := fmt.Sprint(configuration.ConnectionString, "/incidents/misuse/")
 	url2 := fmt.Sprint(configuration.ConnectionString, "/incidents/unauthorized/")
 
 	// declaring a variable for storing incidents of types "misuse" and "unauthorized"
-	merged := Merged{}
+	prepare := map[int64]*Priorities{}
 	var response1 Response
 	var response2 Response
 	json.Unmarshal(querryIncidents(url1), &response1)
 	json.Unmarshal(querryIncidents(url2), &response2)
 
-	// iterating over incidents in original responses
-	for _, incident := range append(response1.Results, response2.Results...) {
-		employee_id_string := strconv.FormatInt(incident.Employee_id, 10)
+	allIncidents := append(response1.Results, response2.Results...)
+
+	for _, incident := range allIncidents {
 
 		// initialize employee_id if not present
-		if _, ok := merged[employee_id_string]; !ok {
-			merged[employee_id_string] = &Priorities{}
+		if _, ok := prepare[incident.Employee_id]; !ok {
+			prepare[incident.Employee_id] = &Priorities{}
+			// prepare[incident.Employee_id].setDefaultValues()
 		}
 		switch incident.Priority {
 		case "low":
-			merged[employee_id_string].Low.Count++
-			merged[employee_id_string].Low.Incidents = append(merged[employee_id_string].Low.Incidents, incident)
+			prepare[incident.Employee_id].Low.addIncident(incident)
 		case "medium":
-			merged[employee_id_string].Medium.Count++
-			merged[employee_id_string].Medium.Incidents = append(merged[employee_id_string].Medium.Incidents, incident)
+			prepare[incident.Employee_id].Medium.addIncident(incident)
 		case "high":
-			merged[employee_id_string].High.Count++
-			merged[employee_id_string].High.Incidents = append(merged[employee_id_string].High.Incidents, incident)
+			prepare[incident.Employee_id].High.addIncident(incident)
 		case "critical":
-			merged[employee_id_string].Critical.Count++
-			merged[employee_id_string].Critical.Incidents = append(merged[employee_id_string].Critical.Incidents, incident)
-
+			prepare[incident.Employee_id].Critical.addIncident(incident)
 		}
+		prepare[incident.Employee_id].sortSeverities()
 
 	}
-	// todo / rethink data model
-	normal_merged := map[string]Priorities{}
-	for employee_id, priorities := range merged {
-		normal_merged[employee_id] = *priorities
+
+	// building the same structure but without pointers
+	merged := map[int64]Priorities{}
+	for employee_id, priorities := range prepare {
+		merged[employee_id] = *priorities
 	}
-	return normal_merged
+	return merged
 }
 
 func querryIncidents(url string) []byte {
@@ -150,8 +163,16 @@ func initConfig() {
 		os.Exit(1)
 	}
 	secretsPath := flag.String("secrets-path", "./config/secrets", "a path where auth_username and auth_password secrets are stored as files.")
-	AuthUsernameFile, _ := os.ReadFile(fmt.Sprint(*secretsPath, "/auth_username"))
-	AuthPasswordFile, _ := os.ReadFile(fmt.Sprint(*secretsPath, "/auth_password"))
+	AuthUsernameFile, err := os.ReadFile(fmt.Sprint(*secretsPath, "/auth_username"))
+	if err != nil {
+		fmt.Printf("Can not open file with auth_username secret \n")
+		os.Exit(1)
+	}
+	AuthPasswordFile, err := os.ReadFile(fmt.Sprint(*secretsPath, "/auth_password"))
+	if err != nil {
+		fmt.Printf("Can not open file with auth_password secret \n")
+		os.Exit(1)
+	}
 
 	configuration.AuthUsername = string(AuthUsernameFile)
 	configuration.AuthPassword = string(AuthPasswordFile)

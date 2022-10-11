@@ -33,4 +33,6 @@ go.work
 
 # THE MOST IMPORTANT !
 config/secrets/**
+secret.yaml
 
+.DS_Store
