@@ -1,0 +1,5 @@
+{
+    "port": 9000,
+    "connection_string": "https://incident-api.use1stag.elevatesecurity.io",
+    "timeout": 10
+}
