@@ -141,14 +141,14 @@ func initConfig() {
 	file, err := os.Open(*configPath)
 	if err != nil {
 		fmt.Printf("Can not open config file\n")
-		return
+		os.Exit(1)
 	}
 	decoder := json.NewDecoder(file)
 	configuration = Configuration{}
 	err = decoder.Decode(&configuration)
 	if err != nil {
 		fmt.Printf("Can not decode config file\n")
-		return
+		os.Exit(1)
 	}
 	secretsPath := flag.String("secrets-path", "./config/secrets", "a path where auth_username and auth_password secrets are stored as files.")
 	AuthUsernameFile, _ := os.ReadFile(fmt.Sprint(*secretsPath, "/auth_username"))
