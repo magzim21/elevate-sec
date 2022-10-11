@@ -1,0 +1,121 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elevate-sec
+  labels:
+    app: elevate-sec
+    type: api
+spec:
+  selector:
+    matchLabels:
+      app: elevate-sec
+  revisionHistoryLimit: 10
+  replicas: 1
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: elevate-sec
+        type: api
+    spec:
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: config-development
+          configMap:
+            name: elevate-sec
+            items:
+              - key: placeholder
+                path: /app/config
+        - name: elevate-sec
+          secret:
+            secretName: elevate-sec
+            items:
+              - key: auth_username
+                path: /app/config/secrets
+              - key: auth_password
+                path: /app/config/secrets
+      containers:
+        - name: main
+          image: "magzim21/elevate-sec:latest"
+          imagePullPolicy: Always
+          args:
+            - "--config /app/config/config-development.json"
+            - "--secrets-path /app/config/secrets"
+          ports:
+            - containerPort: 9000
+              protocol: TCP
+          volumeMounts:
+            - name: elevate-sec
+              mountPath: /app/config/secrets
+              subPath: ""
+            - name: config-development
+              mountPath: /app/config/
+              subPath: ""
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: "0.2"
+            limits:
+              memory: 200Mi
+              cpu: "0.2"
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: ""
+            timeoutSeconds: 20
+            httpGet:
+              # host: ""
+              path: /incidents
+              port: 9000
+              scheme: HTTP
+          startupProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 3600
+            successThreshold: 1
+            timeoutSeconds: 10
+            httpGet:
+              host: ""
+              path: /incidents
+              port: 9000
+              scheme: ""
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsGroup: 1001
+            runAsNonRoot: true
+            runAsUser: 1001
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - web
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elevate-sec
+  labels:
+    app: elevate-sec
+spec:
+  ports:
+    - port: 80
+      targetPort: 9000
+  type: NodePort
+  selector:
+    app: elevate-sec
+
+
