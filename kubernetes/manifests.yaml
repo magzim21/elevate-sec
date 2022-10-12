@@ -20,7 +20,6 @@ data:
     "timeout": 10
     }
 
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,7 +65,9 @@ spec:
                 path: auth_password
       containers:
         - name: main
+          # with Helm chart and ArgoCD this will be a pinned tag
           image: "magzim21/elevate-sec:latest"
+          # Helm chart: only for "latest" image tag
           imagePullPolicy: Always
           args:
             - "--config /app/config/config-development.json"
