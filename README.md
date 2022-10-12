@@ -37,7 +37,7 @@ In order to run, app needs following secrets that are not present in this repo.
 - Refactor merge function in `main.go`. Lines 118-123 hint at some inefficiency. 
 - Add license type to the repo
 - Add PDP manifest
-- Add `.spec.affinity.nodeAffinity` to run only on private subnets nodes.  
+- Add taints to run only on private subnets nodes.  
 - Store image in a private docker repo.  
 - Enhance readme:
     - Add dependencies: For instance: this app depends on **incident-api.use1stag.elevatesecurity.io/incidents** api.  
